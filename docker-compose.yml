@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  apiserver:
+    build: ./
+    ports:
+      - 8000:8080
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - new
+
+  db:
+    restart: always
+    image: postgres:latest
+    networks:
+      new:
+        aliases: 
+          - database
+    ports:
+      - 7557:5432
+    environment:
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${DB_NAME}
+      - DATABASE_HOST=${DB_HOST}
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  migrate:
+    build: ./migrator
+    networks:
+      - new
+    command:
+      [
+        "-path",
+        "./migrations",
+        "-database",
+        "postgres://${DB_USER}:${DB_PASSWORD}@database:${DB_PORT}/${DB_NAME}?sslmode=disable",
+        "up"
+      ]
+    depends_on:
+      db:
+        condition: service_healthy
+
+networks:
+  new:
